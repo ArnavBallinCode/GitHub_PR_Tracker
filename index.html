@@ -1,0 +1,539 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GitHub PR Tracker</title>
+    <style>
+        :root {
+            --color-primary: #238636;
+            --color-primary-hover: #2ea043;
+            --color-bg: #0d1117;
+            --color-surface: #161b22;
+            --color-border: #30363d;
+            --color-text: #c9d1d9;
+            --color-text-secondary: #8b949e;
+            --color-success: #3fb950;
+            --color-warning: #d29922;
+            --color-danger: #da3633;
+            --color-info: #58a6ff;
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', sans-serif;
+            background: var(--color-bg);
+            color: var(--color-text);
+            line-height: 1.6;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        header {
+            margin-bottom: 30px;
+            border-bottom: 1px solid var(--color-border);
+            padding-bottom: 20px;
+        }
+
+        h1 {
+            margin: 0 0 10px 0;
+            font-size: 28px;
+            color: var(--color-text);
+        }
+
+        .header-desc {
+            color: var(--color-text-secondary);
+            font-size: 14px;
+        }
+
+        .search-section {
+            display: grid;
+            grid-template-columns: 1fr 1fr 120px;
+            gap: 12px;
+            margin: 20px 0;
+            background: var(--color-surface);
+            padding: 20px;
+            border: 1px solid var(--color-border);
+            border-radius: 6px;
+        }
+
+        .form-group {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+
+        label {
+            font-size: 12px;
+            font-weight: 600;
+            text-transform: uppercase;
+            color: var(--color-text-secondary);
+        }
+
+        input, select {
+            padding: 8px 12px;
+            background: var(--color-bg);
+            border: 1px solid var(--color-border);
+            border-radius: 6px;
+            color: var(--color-text);
+            font-size: 14px;
+            font-family: inherit;
+        }
+
+        input:focus, select:focus {
+            outline: none;
+            border-color: var(--color-primary);
+            box-shadow: 0 0 0 3px rgba(35, 134, 54, 0.2);
+        }
+
+        button {
+            background: var(--color-primary);
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: 600;
+            font-size: 14px;
+            transition: background 150ms;
+            align-self: flex-end;
+        }
+
+        button:hover {
+            background: var(--color-primary-hover);
+        }
+
+        button:active {
+            opacity: 0.8;
+        }
+
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 12px;
+            margin-bottom: 20px;
+        }
+
+        .stat-card {
+            background: var(--color-surface);
+            border: 1px solid var(--color-border);
+            padding: 15px;
+            border-radius: 6px;
+            text-align: center;
+        }
+
+        .stat-number {
+            font-size: 28px;
+            font-weight: 700;
+            color: var(--color-primary);
+            margin-bottom: 5px;
+        }
+
+        .stat-label {
+            font-size: 12px;
+            color: var(--color-text-secondary);
+            text-transform: uppercase;
+        }
+
+        .pr-list {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+            gap: 16px;
+            margin-bottom: 30px;
+        }
+
+        .pr-card {
+            background: var(--color-surface);
+            border: 1px solid var(--color-border);
+            border-radius: 6px;
+            padding: 16px;
+            transition: all 200ms;
+            cursor: pointer;
+        }
+
+        .pr-card:hover {
+            border-color: var(--color-primary);
+            box-shadow: 0 0 0 3px rgba(35, 134, 54, 0.1);
+        }
+
+        .pr-header {
+            display: flex;
+            align-items: flex-start;
+            justify-content: space-between;
+            gap: 10px;
+            margin-bottom: 10px;
+        }
+
+        .pr-number {
+            font-size: 12px;
+            color: var(--color-text-secondary);
+            font-weight: 600;
+        }
+
+        .pr-status {
+            display: inline-block;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 11px;
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+
+        .status-open {
+            background: rgba(58, 166, 255, 0.15);
+            color: var(--color-info);
+        }
+
+        .status-merged {
+            background: rgba(63, 185, 80, 0.15);
+            color: var(--color-success);
+        }
+
+        .status-closed {
+            background: rgba(218, 54, 51, 0.15);
+            color: var(--color-danger);
+        }
+
+        .pr-title {
+            font-size: 14px;
+            font-weight: 600;
+            color: var(--color-text);
+            margin: 8px 0;
+            word-break: break-word;
+        }
+
+        .pr-meta {
+            display: flex;
+            gap: 12px;
+            font-size: 12px;
+            color: var(--color-text-secondary);
+            margin-bottom: 8px;
+            flex-wrap: wrap;
+        }
+
+        .pr-repo {
+            background: var(--color-bg);
+            padding: 4px 8px;
+            border-radius: 4px;
+            border: 1px solid var(--color-border);
+        }
+
+        .pr-description {
+            font-size: 12px;
+            color: var(--color-text-secondary);
+            line-height: 1.5;
+            max-height: 60px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            display: -webkit-box;
+            -webkit-line-clamp: 3;
+            -webkit-box-orient: vertical;
+        }
+
+        .pr-dates {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            margin-top: 12px;
+            padding-top: 12px;
+            border-top: 1px solid var(--color-border);
+            font-size: 11px;
+        }
+
+        .date-item {
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+        }
+
+        .date-label {
+            color: var(--color-text-secondary);
+            text-transform: uppercase;
+        }
+
+        .date-value {
+            color: var(--color-text);
+            font-weight: 600;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 40px 20px;
+            color: var(--color-text-secondary);
+        }
+
+        .error {
+            background: rgba(218, 54, 51, 0.1);
+            border: 1px solid var(--color-danger);
+            color: var(--color-danger);
+            padding: 15px;
+            border-radius: 6px;
+            margin-bottom: 20px;
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 60px 20px;
+            color: var(--color-text-secondary);
+        }
+
+        .empty-state-icon {
+            font-size: 48px;
+            margin-bottom: 15px;
+            opacity: 0.5;
+        }
+
+        .info-box {
+            background: rgba(88, 166, 255, 0.1);
+            border: 1px solid var(--color-info);
+            padding: 12px;
+            border-radius: 6px;
+            font-size: 12px;
+            color: var(--color-info);
+            margin-bottom: 20px;
+        }
+
+        @media (max-width: 768px) {
+            .search-section {
+                grid-template-columns: 1fr;
+            }
+
+            .pr-list {
+                grid-template-columns: 1fr;
+            }
+
+            h1 {
+                font-size: 22px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>📊 GitHub PR Tracker</h1>
+            <p class="header-desc">Track your pull requests across GitHub organizations with a scrum-style view</p>
+        </header>
+
+        <div class="info-box">
+            💡 <strong>Note:</strong> This app uses GitHub's public API. For private repos, generate a <a href="https://github.com/settings/tokens" style="color: var(--color-info); text-decoration: underline;" target="_blank">Personal Access Token</a> and paste it below (optional).
+        </div>
+
+        <div class="search-section">
+            <div class="form-group">
+                <label>GitHub Token (Optional)</label>
+                <input type="password" id="token" placeholder="ghp_xxxxxxxxxxxxxx">
+            </div>
+            <div class="form-group">
+                <label>Organization</label>
+                <input type="text" id="org" placeholder="e.g., FOSSASIA" value="FOSSASIA">
+            </div>
+            <button onclick="searchPRs()">Search</button>
+        </div>
+
+        <div id="stats" class="stats" style="display: none;"></div>
+        <div id="error" class="error" style="display: none;"></div>
+        <div id="loading" class="loading" style="display: none;">Loading PRs...</div>
+        <div id="prList" class="pr-list"></div>
+        <div id="emptyState" class="empty-state" style="display: none;">
+            <div class="empty-state-icon">🔍</div>
+            <p>No pull requests found. Try a different organization or add a token for private repos.</p>
+        </div>
+    </div>
+
+    <script>
+        let allPRs = [];
+
+        async function searchPRs() {
+            const org = document.getElementById('org').value.trim();
+            const token = document.getElementById('token').value.trim();
+
+            if (!org) {
+                showError('Please enter an organization name');
+                return;
+            }
+
+            showLoading(true);
+            clearError();
+            
+            try {
+                allPRs = await fetchAllPRsForOrg(org, token);
+                
+                if (allPRs.length === 0) {
+                    document.getElementById('emptyState').style.display = 'block';
+                    document.getElementById('prList').innerHTML = '';
+                    document.getElementById('stats').style.display = 'none';
+                } else {
+                    displayStats();
+                    displayPRs(allPRs);
+                    document.getElementById('emptyState').style.display = 'none';
+                }
+            } catch (error) {
+                showError(error.message);
+                console.error('Error:', error);
+            } finally {
+                showLoading(false);
+            }
+        }
+
+        async function fetchAllPRsForOrg(org, token) {
+            const headers = token ? { 'Authorization': `token ${token}` } : {};
+            const repos = await fetchOrgRepos(org, headers);
+            
+            let allPRs = [];
+            
+            for (const repo of repos) {
+                try {
+                    const prs = await fetchRepoPRs(org, repo.name, headers);
+                    allPRs = allPRs.concat(prs.map(pr => ({
+                        ...pr,
+                        repo: repo.name
+                    })));
+                } catch (e) {
+                    console.warn(`Couldn't fetch PRs for ${repo.name}:`, e.message);
+                }
+            }
+
+            return allPRs.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+        }
+
+        async function fetchOrgRepos(org, headers) {
+            const url = `https://api.github.com/orgs/${org}/repos?per_page=100`;
+            const response = await fetch(url, { headers });
+            
+            if (!response.ok) {
+                if (response.status === 404) {
+                    throw new Error(`Organization "${org}" not found`);
+                } else if (response.status === 403) {
+                    throw new Error('Rate limited. Please use a Personal Access Token.');
+                }
+                throw new Error(`Failed to fetch repos: ${response.statusText}`);
+            }
+
+            return response.json();
+        }
+
+        async function fetchRepoPRs(org, repo, headers) {
+            const url = `https://api.github.com/repos/${org}/${repo}/pulls?state=all&per_page=100`;
+            const response = await fetch(url, { headers });
+            
+            if (!response.ok) {
+                throw new Error(`Failed to fetch PRs for ${repo}: ${response.statusText}`);
+            }
+
+            return response.json();
+        }
+
+        function displayStats() {
+            const open = allPRs.filter(pr => pr.state === 'open').length;
+            const merged = allPRs.filter(pr => pr.merged_at).length;
+            const closed = allPRs.filter(pr => pr.state === 'closed' && !pr.merged_at).length;
+
+            const statsHTML = `
+                <div class="stat-card">
+                    <div class="stat-number">${allPRs.length}</div>
+                    <div class="stat-label">Total PRs</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-number" style="color: var(--color-info);">${open}</div>
+                    <div class="stat-label">Open</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-number" style="color: var(--color-success);">${merged}</div>
+                    <div class="stat-label">Merged</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-number" style="color: var(--color-danger);">${closed}</div>
+                    <div class="stat-label">Closed</div>
+                </div>
+            `;
+
+            document.getElementById('stats').innerHTML = statsHTML;
+            document.getElementById('stats').style.display = 'grid';
+        }
+
+        function displayPRs(prs) {
+            const prList = document.getElementById('prList');
+            prList.innerHTML = prs.map(pr => {
+                const createdDate = new Date(pr.created_at).toLocaleDateString();
+                const updatedDate = new Date(pr.updated_at).toLocaleDateString();
+                const mergedOrClosedDate = pr.merged_at 
+                    ? new Date(pr.merged_at).toLocaleDateString()
+                    : pr.closed_at 
+                    ? new Date(pr.closed_at).toLocaleDateString()
+                    : 'N/A';
+
+                let statusClass = 'status-open';
+                let statusText = 'Open';
+                if (pr.merged_at) {
+                    statusClass = 'status-merged';
+                    statusText = 'Merged';
+                } else if (pr.state === 'closed') {
+                    statusClass = 'status-closed';
+                    statusText = 'Closed';
+                }
+
+                return `
+                    <div class="pr-card" onclick="window.open('${pr.html_url}', '_blank')">
+                        <div class="pr-header">
+                            <span class="pr-number">#${pr.number}</span>
+                            <span class="pr-status ${statusClass}">${statusText}</span>
+                        </div>
+                        <div class="pr-title">${escapeHtml(pr.title)}</div>
+                        <div class="pr-meta">
+                            <span class="pr-repo">${pr.repo}</span>
+                            <span>by <strong>${pr.user.login}</strong></span>
+                        </div>
+                        ${pr.body ? `<div class="pr-description">${escapeHtml(pr.body.substring(0, 150))}</div>` : ''}
+                        <div class="pr-dates">
+                            <div class="date-item">
+                                <span class="date-label">Created</span>
+                                <span class="date-value">${createdDate}</span>
+                            </div>
+                            <div class="date-item">
+                                <span class="date-label">${pr.merged_at ? 'Merged' : pr.closed_at ? 'Closed' : 'Updated'}</span>
+                                <span class="date-value">${mergedOrClosedDate}</span>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function showError(message) {
+            const errorDiv = document.getElementById('error');
+            errorDiv.textContent = '❌ ' + message;
+            errorDiv.style.display = 'block';
+        }
+
+        function clearError() {
+            document.getElementById('error').style.display = 'none';
+        }
+
+        function showLoading(show) {
+            document.getElementById('loading').style.display = show ? 'block' : 'none';
+        }
+
+        function escapeHtml(text) {
+            if (!text) return '';
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        // Load default on page load
+        window.addEventListener('load', () => {
+            searchPRs();
+        });
+    </script>
+</body>
+</html>
