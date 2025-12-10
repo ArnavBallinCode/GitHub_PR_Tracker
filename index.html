@@ -856,36 +856,34 @@
                 target="_blank">Personal Access Token</a>. Use filters to focus on specific repos or contributors.
         </div>
 
-        <div class="search-section">
-            <div class="form-group">
-                <label>GitHub Token (Optional)</label>
-                <input type="password" id="token" placeholder="ghp_xxxxxxxxxxxxxx">
-            </div>
-            <div class="form-group">
-                <label>Organization / Username</label>
-                <input type="text" id="org" placeholder="e.g., FOSSASIA" value="FOSSASIA">
-            </div>
-            <button onclick="searchPRs()">🔍 Search</button>
-        </div>
-
-        <!-- Filter Section -->
-        <div class="filter-section" id="filterSection">
-            <div class="filter-header">
-                <h3>🎚️ Filters</h3>
-                <button class="filter-clear" onclick="clearFilters()">Clear All</button>
-            </div>
-            <div class="filter-grid">
-                <div class="filter-group">
-                    <label>Repository</label>
-                    <div class="filter-chips" id="repoFilters"></div>
+        <div class="search-section" style="display: flex; flex-direction: column; gap: 15px;">
+            <!-- Row 1: Main Search Inputs -->
+            <div style="display: grid; grid-template-columns: 180px 1fr 1fr 1fr 100px; gap: 12px; align-items: end;">
+                <div class="form-group">
+                    <label>Token (Optional)</label>
+                    <input type="password" id="token" placeholder="ghp_xxxx...">
                 </div>
-                <div class="filter-group">
+                <div class="form-group">
+                    <label>Organization</label>
+                    <input type="text" id="org" placeholder="e.g., FOSSASIA" value="FOSSASIA">
+                </div>
+                <div class="form-group">
+                    <label>Repo Name</label>
+                    <input type="text" id="repoFilter" placeholder="e.g., eventyay">
+                </div>
+                <div class="form-group">
                     <label>Author</label>
-                    <div class="filter-chips" id="authorFilters"></div>
+                    <input type="text" id="authorFilter" placeholder="e.g., arnavBallinCode">
                 </div>
-                <div class="filter-group">
-                    <label>Status</label>
-                    <div class="filter-chips" id="statusFilters">
+                <button onclick="searchPRs()">🔍 Search</button>
+            </div>
+
+            <!-- Row 2: Status & Time Filters (shown after search) -->
+            <div id="filterRow" style="display: none; border-top: 1px solid var(--color-border); padding-top: 12px;">
+                <div style="display: flex; align-items: center; gap: 15px; flex-wrap: wrap;">
+                    <span
+                        style="font-size: 11px; color: var(--color-text-secondary); text-transform: uppercase; font-weight: 600;">Status:</span>
+                    <div style="display: flex; gap: 8px;" id="statusFilters">
                         <div class="filter-chip" data-filter="status" data-value="open" onclick="toggleFilter(this)">
                             🔵 Open <span class="count" id="openCount">0</span>
                         </div>
@@ -896,16 +894,19 @@
                             🔴 Closed <span class="count" id="closedCount">0</span>
                         </div>
                     </div>
-                </div>
-                <div class="filter-group">
-                    <label>Time Range</label>
-                    <select id="timeFilter" onchange="applyFilters()">
+
+                    <span
+                        style="margin-left: 20px; font-size: 11px; color: var(--color-text-secondary); text-transform: uppercase; font-weight: 600;">Time:</span>
+                    <select id="timeFilter" onchange="applyFilters()" style="padding: 6px 10px; font-size: 12px;">
                         <option value="all">All Time</option>
                         <option value="today">Today</option>
                         <option value="yesterday">Yesterday</option>
                         <option value="week">This Week</option>
                         <option value="month">This Month</option>
                     </select>
+
+                    <button class="filter-clear" onclick="clearFilters()" style="margin-left: auto;">Clear
+                        Filters</button>
                 </div>
             </div>
         </div>
@@ -920,8 +921,15 @@
         <div id="error" class="error" style="display: none;"></div>
         <div id="loading" class="loading" style="display: none;">
             <div class="loading-spinner"></div>
-            <p>Fetching PRs from organization...</p>
+            <p id="loadingText">Fetching PRs from organization...</p>
+            <div class="progress-bar"
+                style="width: 300px; height: 8px; background: var(--color-border); border-radius: 4px; margin: 10px auto; overflow: hidden;">
+                <div id="progressFill"
+                    style="width: 0%; height: 100%; background: var(--color-primary); transition: width 200ms;"></div>
+            </div>
+            <p id="progressText" style="font-size: 12px; color: var(--color-text-secondary);"></p>
         </div>
+
 
         <!-- Scrum View -->
         <div class="scrum-container visible" id="scrumView">
@@ -993,6 +1001,7 @@
         let allPRs = [];
         let filteredPRs = [];
         let currentView = 'scrum';
+        let isLoading = false;
         let activeFilters = {
             repos: [],
             authors: [],
@@ -1009,7 +1018,7 @@
             document.getElementById('gridView').classList.toggle('visible', view === 'grid');
         }
 
-        // Search PRs
+        // Search PRs with Progressive Loading
         async function searchPRs() {
             const org = document.getElementById('org').value.trim();
             const token = document.getElementById('token').value.trim();
@@ -1019,94 +1028,196 @@
                 return;
             }
 
+            // Reset state
+            allPRs = [];
+            filteredPRs = [];
+            isLoading = true;
             showLoading(true);
             clearError();
-            document.getElementById('filterSection').classList.remove('visible');
+
+            // Show filters immediately
+            document.getElementById('filterRow').style.display = 'flex';
+            document.getElementById('emptyState').style.display = 'none';
+            document.getElementById('stats').style.display = 'grid';
+
+            // Filters are now in the search inputs above
 
             try {
-                allPRs = await fetchAllPRsForOrg(org, token);
+                await fetchAllPRsProgressively(org, token);
 
                 if (allPRs.length === 0) {
                     document.getElementById('emptyState').style.display = 'block';
                     document.getElementById('stats').style.display = 'none';
                     document.getElementById('dailySummary').style.display = 'none';
                     document.getElementById('scrumBoard').style.display = 'none';
-                    document.getElementById('prList').innerHTML = '';
-                } else {
-                    document.getElementById('emptyState').style.display = 'none';
-                    document.getElementById('filterSection').classList.add('visible');
-                    populateFilters();
-                    applyFilters();
+                    document.getElementById('filterRow').style.display = 'none';
                 }
             } catch (error) {
                 showError(error.message);
                 console.error('Error:', error);
             } finally {
+                isLoading = false;
                 showLoading(false);
+                // Final update of filters
+                populateFilters();
+                applyFilters();
             }
         }
 
-        async function fetchAllPRsForOrg(org, token) {
+        async function fetchAllPRsProgressively(org, token) {
             const headers = token ? { 'Authorization': `token ${token}` } : {};
-            const repos = await fetchOrgRepos(org, headers);
+            const repoFilterValue = document.getElementById('repoFilter').value.trim().toLowerCase();
+            const authorFilterValue = document.getElementById('authorFilter').value.trim().toLowerCase();
 
-            let allPRs = [];
-            const batchSize = 5;
+            updateProgress(0, 0, 0, 'Fetching repository list...');
 
-            for (let i = 0; i < repos.length; i += batchSize) {
-                const batch = repos.slice(i, i + batchSize);
-                const promises = batch.map(async (repo) => {
-                    try {
-                        const prs = await fetchRepoPRs(org, repo.name, headers);
-                        return prs.map(pr => ({
-                            ...pr,
-                            repo: repo.name
-                        }));
-                    } catch (e) {
-                        console.warn(`Couldn't fetch PRs for ${repo.name}:`, e.message);
-                        return [];
-                    }
-                });
+            let repos = await fetchOrgRepos(org, headers);
 
-                const results = await Promise.all(promises);
-                allPRs = allPRs.concat(results.flat());
+            // Filter repos if specific repo name is provided
+            if (repoFilterValue) {
+                repos = repos.filter(repo =>
+                    repo.name.toLowerCase().includes(repoFilterValue)
+                );
+                if (repos.length === 0) {
+                    updateProgress(0, 0, 0, `No repos found matching "${repoFilterValue}"`);
+                    return;
+                }
             }
 
-            return allPRs.sort((a, b) => new Date(b.updated_at) - new Date(a.updated_at));
+            const totalRepos = repos.length;
+            let processedRepos = 0;
+
+            updateProgress(0, totalRepos, allPRs.length, `Found ${totalRepos} repositories to process`);
+
+            // Process repos one by one for immediate feedback
+            for (const repo of repos) {
+                try {
+                    const prs = await fetchRepoPRs(org, repo.name, headers);
+                    let mappedPRs = prs.map(pr => ({
+                        ...pr,
+                        repo: repo.name
+                    }));
+
+                    // Filter by author if specified
+                    if (authorFilterValue) {
+                        mappedPRs = mappedPRs.filter(pr =>
+                            pr.user.login.toLowerCase().includes(authorFilterValue)
+                        );
+                    }
+
+                    // Add to allPRs immediately
+                    allPRs = allPRs.concat(mappedPRs);
+                    allPRs.sort((a, b) => new Date(b.updated_at) - new Date(a.updated_at));
+
+                    processedRepos++;
+                    const prCountMsg = mappedPRs.length > 0 ? ` (+${mappedPRs.length} PRs)` : '';
+                    updateProgress(processedRepos, totalRepos, allPRs.length, `Processing ${repo.name}...${prCountMsg}`);
+
+                    // Update display every few repos or when we get PRs
+                    if (mappedPRs.length > 0 || processedRepos % 3 === 0) {
+                        populateFilters();
+                        applyFilters();
+                    }
+
+                } catch (e) {
+                    console.warn(`Couldn't fetch PRs for ${repo.name}:`, e.message);
+                    processedRepos++;
+                    updateProgress(processedRepos, totalRepos, allPRs.length, `Skipped ${repo.name}`);
+                }
+            }
+
+            updateProgress(totalRepos, totalRepos, allPRs.length, 'Complete!');
+        }
+
+        function updateProgress(current, total, prCount, message) {
+            const percent = total > 0 ? Math.round((current / total) * 100) : 0;
+            document.getElementById('progressFill').style.width = percent + '%';
+            document.getElementById('loadingText').textContent = message;
+            document.getElementById('progressText').textContent = `${current}/${total} repos · ${prCount} PRs loaded`;
         }
 
         async function fetchOrgRepos(org, headers) {
-            const url = `https://api.github.com/orgs/${org}/repos?per_page=100`;
-            const response = await fetch(url, { headers });
+            let allRepos = [];
+            let page = 1;
+            let isOrg = true;
 
-            if (!response.ok) {
-                if (response.status === 404) {
-                    // Try as user instead
-                    const userUrl = `https://api.github.com/users/${org}/repos?per_page=100`;
-                    const userResponse = await fetch(userUrl, { headers });
-                    if (!userResponse.ok) {
-                        throw new Error(`Organization/User "${org}" not found`);
+            while (true) {
+                let url = `https://api.github.com/orgs/${org}/repos?per_page=100&page=${page}`;
+                let response = await fetch(url, { headers });
+
+                if (!response.ok && page === 1) {
+                    if (response.status === 404) {
+                        // Try as user instead
+                        isOrg = false;
+                        url = `https://api.github.com/users/${org}/repos?per_page=100&page=${page}`;
+                        response = await fetch(url, { headers });
+                        if (!response.ok) {
+                            throw new Error(`Organization/User "${org}" not found`);
+                        }
+                    } else if (response.status === 403) {
+                        throw new Error('Rate limited. Please use a Personal Access Token.');
+                    } else {
+                        throw new Error(`Failed to fetch repos: ${response.statusText}`);
                     }
-                    return userResponse.json();
-                } else if (response.status === 403) {
-                    throw new Error('Rate limited. Please use a Personal Access Token.');
+                } else if (!response.ok) {
+                    break; // End of pagination
                 }
-                throw new Error(`Failed to fetch repos: ${response.statusText}`);
+
+                // For subsequent pages when it's a user
+                if (!isOrg && page > 1) {
+                    url = `https://api.github.com/users/${org}/repos?per_page=100&page=${page}`;
+                    response = await fetch(url, { headers });
+                    if (!response.ok) break;
+                }
+
+                const repos = await response.json();
+                if (repos.length === 0) break;
+
+                allRepos = allRepos.concat(repos);
+
+                // Check if there are more pages via Link header
+                const linkHeader = response.headers.get('Link');
+                if (!linkHeader || !linkHeader.includes('rel="next"')) {
+                    break;
+                }
+                page++;
             }
 
-            return response.json();
+            return allRepos;
         }
 
         async function fetchRepoPRs(org, repo, headers) {
-            const url = `https://api.github.com/repos/${org}/${repo}/pulls?state=all&per_page=100`;
-            const response = await fetch(url, { headers });
+            let allPRs = [];
+            let page = 1;
 
-            if (!response.ok) {
-                throw new Error(`Failed to fetch PRs for ${repo}: ${response.statusText}`);
+            while (true) {
+                const url = `https://api.github.com/repos/${org}/${repo}/pulls?state=all&per_page=100&page=${page}`;
+                const response = await fetch(url, { headers });
+
+                if (!response.ok) {
+                    if (page === 1) {
+                        throw new Error(`Failed to fetch PRs for ${repo}: ${response.statusText}`);
+                    }
+                    break;
+                }
+
+                const prs = await response.json();
+                if (prs.length === 0) break;
+
+                allPRs = allPRs.concat(prs);
+
+                // Check if there are more pages
+                const linkHeader = response.headers.get('Link');
+                if (!linkHeader || !linkHeader.includes('rel="next"')) {
+                    break;
+                }
+                page++;
             }
 
-            return response.json();
+            return allPRs;
         }
+
+        // Author filtering is now handled by pre-search input
 
         // Filter Management
         function populateFilters() {
@@ -1123,17 +1234,7 @@
             const sortedRepos = Object.entries(repos).sort((a, b) => b[1] - a[1]);
             const sortedAuthors = Object.entries(authors).sort((a, b) => b[1] - a[1]);
 
-            document.getElementById('repoFilters').innerHTML = sortedRepos.map(([repo, count]) => `
-                <div class="filter-chip" data-filter="repo" data-value="${repo}" onclick="toggleFilter(this)">
-                    ${repo} <span class="count">${count}</span>
-                </div>
-            `).join('');
-
-            document.getElementById('authorFilters').innerHTML = sortedAuthors.slice(0, 15).map(([author, count]) => `
-                <div class="filter-chip" data-filter="author" data-value="${author}" onclick="toggleFilter(this)">
-                    ${author} <span class="count">${count}</span>
-                </div>
-            `).join('');
+            // Removed repo and author filter chips - now using pre-search inputs
 
             // Update status counts
             const open = allPRs.filter(pr => pr.state === 'open').length;
@@ -1172,6 +1273,7 @@
             activeFilters = { repos: [], authors: [], status: [], timeRange: 'all' };
             document.querySelectorAll('.filter-chip.selected').forEach(chip => chip.classList.remove('selected'));
             document.getElementById('timeFilter').value = 'all';
+            document.getElementById('authorSearch').value = '';
             applyFilters();
         }
 
