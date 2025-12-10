@@ -845,10 +845,7 @@
                 <h1>📊 GitHub PR Tracker</h1>
                 <p class="header-desc">Track pull requests with Scrum-style standup view</p>
             </div>
-            <div class="view-toggle">
-                <button class="view-btn active" onclick="switchView('scrum')" id="scrumViewBtn">🎯 Scrum</button>
-                <button class="view-btn" onclick="switchView('grid')" id="gridViewBtn">📋 Grid</button>
-            </div>
+
         </header>
 
         <div class="info-box">
@@ -873,7 +870,7 @@
                 </div>
                 <div class="form-group">
                     <label>Author</label>
-                    <input type="text" id="authorFilter" placeholder="e.g., arnavBallinCode">
+                    <input type="text" id="authorFilter" placeholder="e.g., ArnavBallinCode">
                 </div>
                 <button onclick="searchPRs()">🔍 Search</button>
             </div>
@@ -1155,7 +1152,14 @@
                             throw new Error(`Organization/User "${org}" not found`);
                         }
                     } else if (response.status === 403) {
-                        throw new Error('Rate limited. Please use a Personal Access Token.');
+                        const resetTime = response.headers.get('X-RateLimit-Reset');
+                        let resetMsg = '';
+                        if (resetTime) {
+                            const resetDate = new Date(parseInt(resetTime) * 1000);
+                            const minsLeft = Math.ceil((resetDate - new Date()) / 60000);
+                            resetMsg = ` Rate limit resets in ${minsLeft} minutes.`;
+                        }
+                        throw new Error(`GitHub API rate limit reached (60 requests/hour without token).${resetMsg} Add a Personal Access Token for 5000 requests/hour.`);
                     } else {
                         throw new Error(`Failed to fetch repos: ${response.statusText}`);
                     }
@@ -1672,11 +1676,14 @@
             return div.innerHTML;
         }
 
-        // Initialize
-        window.addEventListener('load', () => {
-            searchPRs();
-        });
+        // Page ready - user clicks Search to start
     </script>
 </body>
+
+<footer
+    style="text-align: center; padding: 30px 20px; border-top: 1px solid #30363d; margin-top: 40px; color: #8b949e; font-size: 13px;">
+    <p style="margin: 0;">Made by Arnav Angarkar | <a href="https://github.com/ArnavBallinCode/GitHub_PR_Tracker"
+            target="_blank" style="color: #58a6ff; text-decoration: none;">View Code on GitHub</a></p>
+</footer>
 
 </html>
